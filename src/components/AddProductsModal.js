@@ -105,11 +105,13 @@ const AddProductsModal = ({ open, handleClose, products, setProducts }) => {
     } else {
       const selected_prod_obj = {};
       products.forEach((product) => {
-        selected_prod_obj[product.id] = [];
+        if (product.id) {
+          selected_prod_obj[product.id] = [];
 
-        product.variants.forEach((variant) => {
-          selected_prod_obj[product.id].push(variant.id);
-        });
+          product.variants.forEach((variant) => {
+            selected_prod_obj[product.id].push(variant.id);
+          });
+        }
       });
       setSelectedProductList(selected_prod_obj);
     }

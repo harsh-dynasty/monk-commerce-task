@@ -19,36 +19,36 @@ const AddProducts = () => {
   const [isDragDisabled, setIsDragDisabled] = useState(false);
 
   const [products, setProducts] = useState([
-    {
-      id: 100,
-      discount: { type: "%Off", value: 0 },
-      title: "Fog Linen Chambray Towel - Beige Stripe",
-      variants: [
-        {
-          id: 1,
-          title: "XS / Silver",
-        },
-        {
-          id: 2,
-          title: "S / Silver",
-        },
-        {
-          id: 3,
-          title: "M / Silver",
-        },
-      ],
-    },
-    {
-      id: 101,
-      discount: { type: "Flat Discount", value: 0 },
-      title: "Orbit Terrarium - Large",
-      variants: [
-        {
-          id: 2,
-          title: "S / Silver",
-        },
-      ],
-    },
+    // {
+    //   id: 100,
+    //   discount: { type: "%Off", value: 0 },
+    //   title: "Fog Linen Chambray Towel - Beige Stripe",
+    //   variants: [
+    //     {
+    //       id: 1,
+    //       title: "XS / Silver",
+    //     },
+    //     {
+    //       id: 2,
+    //       title: "S / Silver",
+    //     },
+    //     {
+    //       id: 3,
+    //       title: "M / Silver",
+    //     },
+    //   ],
+    // },
+    // {
+    //   id: 101,
+    //   discount: { type: "Flat Discount", value: 0 },
+    //   title: "Orbit Terrarium - Large",
+    //   variants: [
+    //     {
+    //       id: 2,
+    //       title: "S / Silver",
+    //     },
+    //   ],
+    // },
   ]);
 
   const handleClose = () => {
