@@ -59,7 +59,10 @@ const AddProductsModal = ({ open, handleClose, setProducts }) => {
   }, [selectedProductList]);
 
   const handleAdd = () => {
-    console.log(Object.keys(selectedProductList));
+    if (Object.keys(selectedProductList).length == 0) {
+      handleClose(true);
+      return;
+    }
     const newProductList = productList
       .filter((productObj) =>
         Object.keys(selectedProductList).includes(String(productObj.id))
