@@ -12,6 +12,7 @@ import {
   List,
   ListItemButton,
   Avatar,
+  CircularProgress,
 } from "@mui/material";
 
 import React, { useEffect, useState } from "react";
@@ -26,37 +27,93 @@ const style = {
   p: 4,
 };
 
-const AddProductsModal = ({ open, handleClose, setProducts }) => {
-  const [input, setInput] = useState("");
+let timeout = null;
 
-  const [productList, setProductList] = useState([]);
-  const [selectedProductList, setSelectedProductList] = useState({});
+const AddProductsModal = ({ open, handleClose, products, setProducts }) => {
+  const [input, setInput] = useState("");
+  const [page, setPage] = useState(1);
+  const [isLoadingList, setIsLoadingList] = useState(true);
+
+  function listener() {
+    const myDiv = document.getElementById("product_list");
+    if (myDiv.offsetHeight + myDiv.scrollTop >= myDiv.scrollHeight) {
+      setPage((prev) => prev + 1);
+    }
+  }
+
   useEffect(() => {
+    setIsLoadingList(true);
+    clearTimeout(timeout);
+    setPage(1);
+    timeout = setTimeout(() => {
+      fetchProducts();
+    }, 500);
+  }, [input]);
+
+  const [productList, setProductList] = useState([]); //fetched product list from api
+  const [selectedProductList, setSelectedProductList] = useState({}); //mainting checkbox states here
+
+  const fetchProducts = () => {
     fetch(
-      "https://stageapibc.monkcommerce.app/admin/shop/product?search=Fo&page=1"
+      `https://stageapibc.monkcommerce.app/admin/shop/product?${
+        input === "" ? "" : `search=${input}&`
+      }page=${page}`
     )
       .then((res) => res.json())
       .then((data) => {
-        setProductList(
-          data.map((product) => ({
-            id: product.id,
-            title: product.title,
-            image: product.image.src,
+        if (data)
+          setProductList((prev) => {
+            const fetched_list = data.map((product) => ({
+              id: product.id,
+              title: product.title,
+              image: product.image.src,
 
-            variants: product.variants.map((vari) => ({
-              id: vari.id,
-              title: vari.title,
-              quantity: vari.inventory_quantity,
-              price: vari.price,
-            })),
-          }))
-        );
+              variants: product.variants.map((vari) => ({
+                id: vari.id,
+                title: vari.title,
+                quantity: vari.inventory_quantity,
+                price: vari.price,
+              })),
+            }));
+            if (page == 1) return fetched_list;
+            else return [...prev, ...fetched_list];
+          });
+        setIsLoadingList(false);
       });
+  };
+  useEffect(() => {
+    document
+      .getElementById("product_list")
+      ?.addEventListener("scroll", listener);
+    return () => {
+      document
+        .getElementById("product_list")
+        ?.removeEventListener("scroll", listener);
+    };
+  });
+  useEffect(() => {
+    fetchProducts();
   }, []);
 
   useEffect(() => {
-    console.log(selectedProductList);
-  }, [selectedProductList]);
+    fetchProducts();
+  }, [page]);
+
+  useEffect(() => {
+    if (!open) {
+      setSelectedProductList({});
+    } else {
+      const selected_prod_obj = {};
+      products.forEach((product) => {
+        selected_prod_obj[product.id] = [];
+
+        product.variants.forEach((variant) => {
+          selected_prod_obj[product.id].push(variant.id);
+        });
+      });
+      setSelectedProductList(selected_prod_obj);
+    }
+  }, [open]);
 
   const handleAdd = () => {
     if (Object.keys(selectedProductList).length == 0) {
@@ -183,76 +240,90 @@ const AddProductsModal = ({ open, handleClose, setProducts }) => {
             onChange={(e) => setInput(e.target.value)}
           />
         </Paper>
-
-        <List
-          sx={{
-            width: "100%",
-            bgcolor: "background.paper",
-            maxHeight: "60vh",
-            overflow: "scroll",
-          }}
-        >
-          {productList
-            .filter((product) => {
-              if (input == "") return true;
-              return product.title.toLowerCase().includes(input.toLowerCase());
-            })
-            .map((product, index) => {
-              return (
-                <div key={index}>
-                  <ListItem disablePadding>
-                    <ListItemButton
-                      onClick={() => handleToggle(product.id)}
-                      dense
-                    >
-                      <ListItemIcon>
-                        <Checkbox
-                          edge="start"
-                          checked={
-                            selectedProductList[product.id] ? true : false
-                          }
-                          tabIndex={-1}
-                          disableRipple
-                          indeterminate={
-                            selectedProductList[product.id] &&
-                            selectedProductList[product.id]?.length !=
-                              product.variants.length
-                              ? true
-                              : false
-                          }
-                        />
-                      </ListItemIcon>
-                      <Avatar
-                        alt=""
-                        style={{ marginRight: 10 }}
-                        src={product.image}
-                      />
-                      <Typography>{product.title}</Typography>
-                    </ListItemButton>
-                  </ListItem>
-                  {product.variants.map((variant) => {
-                    return (
-                      <Variant
-                        key={variant.id}
-                        handleToggle={(variantId) =>
-                          handleToggleVariant(product.id, variantId)
-                        }
-                        checked={
-                          selectedProductList[product.id] &&
-                          selectedProductList[product.id].indexOf(
-                            variant.id
-                          ) !== -1
-                            ? true
-                            : false
-                        }
-                        variant={variant}
-                      />
-                    );
-                  })}
-                </div>
-              );
-            })}
-        </List>
+        {isLoadingList ? (
+          <div
+            style={{
+              display: "flex",
+              width: "100%",
+              justifyContent: "center",
+              margin: 10,
+            }}
+          >
+            <CircularProgress />
+          </div>
+        ) : (
+          <List
+            id="product_list"
+            sx={{
+              width: "100%",
+              bgcolor: "background.paper",
+              maxHeight: "60vh",
+              overflow: "scroll",
+            }}
+          >
+            {productList.length > 0 &&
+              productList
+                // .filter((product) => {
+                //   if (input == "") return true;
+                //   return product.title.toLowerCase().includes(input.toLowerCase());
+                // })
+                .map((product, index) => {
+                  return (
+                    <div key={index}>
+                      <ListItem disablePadding>
+                        <ListItemButton
+                          onClick={() => handleToggle(product.id)}
+                          dense
+                        >
+                          <ListItemIcon>
+                            <Checkbox
+                              edge="start"
+                              checked={
+                                selectedProductList[product.id] ? true : false
+                              }
+                              tabIndex={-1}
+                              disableRipple
+                              indeterminate={
+                                selectedProductList[product.id] &&
+                                selectedProductList[product.id]?.length !=
+                                  product.variants.length
+                                  ? true
+                                  : false
+                              }
+                            />
+                          </ListItemIcon>
+                          <Avatar
+                            alt=""
+                            style={{ marginRight: 10 }}
+                            src={product.image}
+                          />
+                          <Typography>{product.title}</Typography>
+                        </ListItemButton>
+                      </ListItem>
+                      {product.variants.map((variant) => {
+                        return (
+                          <Variant
+                            key={variant.id}
+                            handleToggle={(variantId) =>
+                              handleToggleVariant(product.id, variantId)
+                            }
+                            checked={
+                              selectedProductList[product.id] &&
+                              selectedProductList[product.id].indexOf(
+                                variant.id
+                              ) !== -1
+                                ? true
+                                : false
+                            }
+                            variant={variant}
+                          />
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+          </List>
+        )}
         <Divider style={{ marginTop: 10, marginBottom: 10 }} />
         <div style={{ display: "flex", alignItems: "center" }}>
           <Typography>

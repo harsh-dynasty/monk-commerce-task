@@ -56,7 +56,7 @@ const AddProducts = () => {
   };
   const addProducts = () => {
     setProducts((prev) => {
-      return [...prev, { discount: { type: "%Off", value: 0 } }];
+      return [...prev, { discount: { type: "%Off", value: 0 }, variants: [] }];
     });
   };
   const handleOnDragEnd = (result) => {
@@ -125,6 +125,7 @@ const AddProducts = () => {
         open={openModal}
         handleClose={handleClose}
         setProducts={setProducts}
+        products={products}
       />
     </>
   );
