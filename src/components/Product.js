@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Typography,
   Paper,
@@ -56,6 +56,10 @@ const Product = ({
 }) => {
   const [showVariants, setShowVariants] = useState(false);
   const [discount, setDiscount] = useState(null);
+
+  useEffect(() => {
+    setShowVariants(false);
+  }, [product]);
   const handleDiscount = (e) => {
     setProducts((prev) => {
       return prev.map((product, i) => {
@@ -196,7 +200,7 @@ const Product = ({
       )}
 
       {
-        showVariants && (
+        showVariants && product.variants && (
           <DragDropContext
             onDragEnd={(result) => handleOnDragEnd(product.id, result)}
             onDragStart={() => setIsDragDisabled(true)}
