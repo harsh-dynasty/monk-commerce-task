@@ -74,7 +74,6 @@ const Product = ({
     });
   };
   const handleOnDragEnd = (productId, result) => {
-    console.log(productId, result);
     setIsDragDisabled(false);
     if (!result.destination) return;
 

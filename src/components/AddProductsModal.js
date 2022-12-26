@@ -15,17 +15,9 @@ import {
   CircularProgress,
 } from "@mui/material";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { StyledButton } from "./Product";
 import { StyledButton as StyledOutlinedButton } from "./AddProducts";
-
-const style = {
-  position: "absolute",
-  top: "50%",
-  left: "50%",
-  transform: "translate(-50%, -50%)",
-  p: 4,
-};
 
 let timeout = null;
 
@@ -34,12 +26,52 @@ const AddProductsModal = ({ open, handleClose, products, setProducts }) => {
   const [page, setPage] = useState(1);
   const [isLoadingList, setIsLoadingList] = useState(true);
 
+  const [productList, setProductList] = useState([]); //fetched product list from api
+  const [selectedProductList, setSelectedProductList] = useState([]); //mainting checkbox states here
+
+  const check_prod_in_sel_prod_list = useCallback(
+    (productId) => {
+      for (var i = 0; i < selectedProductList.length; i++) {
+        if (selectedProductList[i].id && selectedProductList[i].id == productId)
+          return i;
+      }
+      return -1;
+    },
+    [selectedProductList]
+  );
+
+  const check_var_in_sel_prod_list = useCallback(
+    (productId, variantId) => {
+      var productIndex = -1;
+      var variantIndex = -1;
+      for (var i = 0; i < selectedProductList.length; i++) {
+        if (
+          selectedProductList[i].id &&
+          selectedProductList[i].id == productId
+        ) {
+          productIndex = i;
+          const variants = selectedProductList[i].variants;
+          for (var j = 0; j < variants.length; j++) {
+            if (variants[j].id == variantId) variantIndex = j;
+          }
+        }
+      }
+      return [productIndex, variantIndex];
+    },
+    [selectedProductList]
+  );
+
   function listener() {
     const myDiv = document.getElementById("product_list");
     if (myDiv.offsetHeight + myDiv.scrollTop >= myDiv.scrollHeight) {
       setPage((prev) => prev + 1);
     }
   }
+  useEffect(() => {
+    if (open) {
+      setSelectedProductList(products.filter((product) => product.id));
+    }
+  }, [open]);
 
   useEffect(() => {
     setIsLoadingList(true);
@@ -50,8 +82,22 @@ const AddProductsModal = ({ open, handleClose, products, setProducts }) => {
     }, 500);
   }, [input]);
 
-  const [productList, setProductList] = useState([]); //fetched product list from api
-  const [selectedProductList, setSelectedProductList] = useState({}); //mainting checkbox states here
+  useEffect(() => {
+    fetchProducts();
+  }, [page]);
+
+  useEffect(() => {
+    setTimeout(() => {
+      if (!isLoadingList)
+        document
+          .getElementById("product_list")
+          ?.addEventListener("scroll", listener);
+      else
+        document
+          .getElementById("product_list")
+          ?.removeEventListener("scroll", listener);
+    }, 1000);
+  }, [isLoadingList]);
 
   const fetchProducts = () => {
     fetch(
@@ -81,120 +127,94 @@ const AddProductsModal = ({ open, handleClose, products, setProducts }) => {
         setIsLoadingList(false);
       });
   };
-  useEffect(() => {
-    document
-      .getElementById("product_list")
-      ?.addEventListener("scroll", listener);
-    return () => {
-      document
-        .getElementById("product_list")
-        ?.removeEventListener("scroll", listener);
-    };
-  });
-  useEffect(() => {
-    fetchProducts();
-  }, []);
 
-  useEffect(() => {
-    fetchProducts();
-  }, [page]);
-
-  useEffect(() => {
-    if (!open) {
-      setSelectedProductList({});
-    } else {
-      const selected_prod_obj = {};
-      products.forEach((product) => {
-        if (product.id) {
-          selected_prod_obj[product.id] = [];
-
-          product.variants.forEach((variant) => {
-            selected_prod_obj[product.id].push(variant.id);
-          });
-        }
-      });
-      setSelectedProductList(selected_prod_obj);
-    }
-  }, [open]);
+  const check_sproduct_in_list = useCallback(
+    (productId, list) => {
+      return list.reduce((ans, prod) => {
+        if (prod.id == productId) return ans || true;
+        else return ans || false;
+      }, false);
+    },
+    [selectedProductList, products]
+  );
 
   const handleAdd = () => {
-    if (Object.keys(selectedProductList).length == 0) {
-      handleClose(true);
-      return;
-    }
-    const newProductList = productList
-      .filter((productObj) =>
-        Object.keys(selectedProductList).includes(String(productObj.id))
-      )
-      .map((productObj) => {
-        return {
-          ...productObj,
-          variants: productObj.variants.filter((variantObj) =>
-            selectedProductList[productObj.id].includes(variantObj.id)
-          ),
-          discount: { type: "Flat Discount", value: 0 },
-        };
+    setProducts((prevList) => {
+      var newList = Array.from(prevList);
+      selectedProductList.forEach((product) => {
+        if (!check_sproduct_in_list(product.id, products)) {
+          if (newList[open - 1].id) newList.splice(open - 1, 0, product);
+          else newList.splice(open - 1, 1, product);
+        }
       });
-
-    setProducts((prev) => {
-      const newProducts = Array.from(prev);
-      newProducts.splice(open - 1, 1, ...newProductList);
-
-      return newProducts;
+      newList = newList.filter((prod) => {
+        if (!prod.id) return true;
+        else return check_sproduct_in_list(prod.id, selectedProductList);
+      });
+      return newList;
     });
-    console.log(open);
-    handleClose(true);
+    handleClose(false);
   };
 
-  const handleToggle = (productId) => {
-    if (selectedProductList[productId]) {
-      setSelectedProductList((prev) => {
-        const newObj = {};
-        Object.keys({ ...prev })
-          .filter((key) => {
-            return key != productId;
-          })
-          .forEach((key) => {
-            newObj[key] = prev[key];
-          });
-        return newObj;
+  const handleToggle = (product) => {
+    const index = check_prod_in_sel_prod_list(product.id);
+    if (index == -1) {
+      setSelectedProductList((prev) => [...prev, product]);
+    } else {
+      const selected_product_list = Array.from(selectedProductList);
+      selected_product_list.splice(index, 1);
+      setSelectedProductList(selected_product_list);
+    }
+  };
+  const handleToggleVariant = (product, variant) => {
+    const [productIndex, variantIndex] = check_var_in_sel_prod_list(
+      product.id,
+      variant.id
+    );
+
+    if (productIndex == -1) {
+      //make new product
+      // add variant in new product
+      //add product in new list
+      setSelectedProductList((prevList) => {
+        var newList = Array.from(prevList);
+        var newProduct = { ...product, variants: [variant] };
+        newList.push(newProduct);
+        return newList;
+      });
+    } else if (variantIndex == -1) {
+      //go to the product
+      //push variants to its existing variants
+      //add product in new list
+
+      setSelectedProductList((prevList) => {
+        var newList = Array.from(prevList).map((prod) => {
+          if (prod.id == product.id) {
+            var newVariants = Array.from(prod.variants);
+            newVariants.push(variant);
+            return { ...prod, variants: newVariants };
+          } else return { ...prod };
+        });
+        return newList;
       });
     } else {
-      setSelectedProductList((prev) => ({
-        ...prev,
-        [productId]: productList.reduce((selected_variant_ids, productObj) => {
-          if (productObj.id == productId) {
-            selected_variant_ids = productObj.variants.map(({ id }) => id);
+      //go to the product
+      //remove variant from the existing variants
+      //return modified list
+      setSelectedProductList((prevList) => {
+        var newList = Array.from(prevList);
+        newList = newList.map((prod) => {
+          var newProd = { ...prod };
+          if (newProd.id == product.id) {
+            var newVariants = Array.from(newProd.variants);
+            newVariants.splice(variantIndex, 1);
+            newProd.variants = newVariants;
           }
-          return selected_variant_ids;
-        }, []),
-      }));
-    }
-  };
-  const handleToggleVariant = (productId, variantId) => {
-    setSelectedProductList((prev) => {
-      const newObj = { ...prev };
-
-      if (!newObj[productId]) {
-        var variants = [];
-        variants.push(variantId);
-        newObj[productId] = variants;
-      } else
-        Object.keys(newObj).forEach((key) => {
-          if (key == productId) {
-            const newArr = [...prev[productId]];
-            const currentIndex = newArr.indexOf(variantId);
-            if (currentIndex === -1) {
-              newArr.push(variantId);
-            } else {
-              newArr.splice(currentIndex, 1);
-            }
-            newObj[key] = newArr;
-          }
+          return newProd;
         });
-
-      return newObj;
-    });
+        return newList;
+      });
+    }
   };
   return (
     <Modal
@@ -264,72 +284,87 @@ const AddProductsModal = ({ open, handleClose, products, setProducts }) => {
             }}
           >
             {productList.length > 0 &&
-              productList
-                // .filter((product) => {
-                //   if (input == "") return true;
-                //   return product.title.toLowerCase().includes(input.toLowerCase());
-                // })
-                .map((product, index) => {
-                  return (
-                    <div key={index}>
-                      <ListItem disablePadding>
-                        <ListItemButton
-                          onClick={() => handleToggle(product.id)}
-                          dense
-                        >
-                          <ListItemIcon>
-                            <Checkbox
-                              edge="start"
-                              checked={
-                                selectedProductList[product.id] ? true : false
-                              }
-                              tabIndex={-1}
-                              disableRipple
-                              indeterminate={
-                                selectedProductList[product.id] &&
-                                selectedProductList[product.id]?.length !=
-                                  product.variants.length
-                                  ? true
-                                  : false
-                              }
-                            />
-                          </ListItemIcon>
-                          <Avatar
-                            alt=""
-                            style={{ marginRight: 10 }}
-                            src={product.image}
-                          />
-                          <Typography>{product.title}</Typography>
-                        </ListItemButton>
-                      </ListItem>
-                      {product.variants.map((variant) => {
-                        return (
-                          <Variant
-                            key={variant.id}
-                            handleToggle={(variantId) =>
-                              handleToggleVariant(product.id, variantId)
-                            }
-                            checked={
-                              selectedProductList[product.id] &&
-                              selectedProductList[product.id].indexOf(
-                                variant.id
-                              ) !== -1
-                                ? true
+              productList.map((product, index) => {
+                return (
+                  <div key={index}>
+                    <ListItem disablePadding>
+                      <ListItemButton
+                        onClick={() => handleToggle(product)}
+                        dense
+                      >
+                        <ListItemIcon>
+                          <Checkbox
+                            edge="start"
+                            checked={selectedProductList.reduce((ans, prod) => {
+                              if (product.id == prod.id) return ans || true;
+                              return ans || false;
+                            }, false)}
+                            tabIndex={-1}
+                            disableRipple
+                            indeterminate={
+                              //if checkbox checked then----
+                              //prodlist variants length == selectedlist variants ? false :true
+                              //otherwise false
+                              selectedProductList.reduce((ans, prod) => {
+                                if (product.id == prod.id) return ans || true;
+                                return ans || false;
+                              }, false)
+                                ? productList.reduce((total, prod) => {
+                                    if (prod.id == product.id) {
+                                      return total + prod.variants.length;
+                                    } else return total;
+                                  }, 0) ==
+                                  selectedProductList.reduce((total, prod) => {
+                                    if (prod.id == product.id) {
+                                      return total + prod.variants.length;
+                                    } else return total;
+                                  }, 0)
+                                  ? false
+                                  : true
                                 : false
                             }
-                            variant={variant}
                           />
-                        );
-                      })}
-                    </div>
-                  );
-                })}
+                        </ListItemIcon>
+                        <Avatar
+                          alt=""
+                          style={{ marginRight: 10 }}
+                          src={product.image}
+                        />
+                        <Typography>{product.title}</Typography>
+                      </ListItemButton>
+                    </ListItem>
+                    {product.variants.map((variant) => {
+                      return (
+                        <Variant
+                          key={variant.id}
+                          handleToggle={(variantId) =>
+                            handleToggleVariant(product, variant)
+                          }
+                          checked={selectedProductList.reduce((ans, prod) => {
+                            if (product.id == prod.id) {
+                              return (
+                                ans ||
+                                prod.variants.reduce((ans, vari) => {
+                                  if (vari.id == variant.id) return ans || true;
+                                  return ans || false;
+                                }, false)
+                              );
+                            }
+                            return ans || false;
+                          }, false)}
+                          variant={variant}
+                        />
+                      );
+                    })}
+                  </div>
+                );
+              })}
           </List>
         )}
         <Divider style={{ marginTop: 10, marginBottom: 10 }} />
         <div style={{ display: "flex", alignItems: "center" }}>
           <Typography>
-            {Object.keys(selectedProductList).length} products selected
+            {selectedProductList.length} products selected
           </Typography>
           <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
             <StyledOutlinedButton variant="outlined" onClick={handleClose}>
